@@ -1,12 +1,12 @@
 use crate::{
-    draw_num_x_center, get_num_length, pause, println, ptr_wrap, read_current_input,
-    read_key_better, resume,
+    change_delay_from_keys, draw_num, draw_num_x_center, get_num_length, pause, println, ptr_wrap,
+    read_current_input, read_key_better, resume,
     rollback::{dump_frame, Frame, DUMP_FRAME_TIME},
     soku_heap_free, CENTER_X_P1, CENTER_X_P2, CENTER_Y_P1, CENTER_Y_P2, DISABLE_SOUND,
-    ENABLE_CHECK_MODE, INSIDE_COLOR, INSIDE_HALF_HEIGHT, INSIDE_HALF_WIDTH, ISDEBUG, LAST_STATE,
-    MEMORY_RECEIVER_ALLOC, MEMORY_RECEIVER_FREE, NEXT_DRAW_ROLLBACK, OUTER_COLOR,
-    OUTER_HALF_HEIGHT, OUTER_HALF_WIDTH, PROGRESS_COLOR, REAL_INPUT, REAL_INPUT2, SOKU_FRAMECOUNT,
-    TAKEOVER_COLOR,
+    ENABLE_CHECK_MODE, INSIDE_COLOR, INSIDE_HALF_HEIGHT, INSIDE_HALF_WIDTH, ISDEBUG,
+    LAST_DELAY_VALUE_TAKEOVER, LAST_STATE, MEMORY_RECEIVER_ALLOC, MEMORY_RECEIVER_FREE,
+    NEXT_DRAW_ROLLBACK, OUTER_COLOR, OUTER_HALF_HEIGHT, OUTER_HALF_WIDTH, PROGRESS_COLOR,
+    REAL_INPUT, REAL_INPUT2, SOKU_FRAMECOUNT, TAKEOVER_COLOR,
 };
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -28,6 +28,7 @@ struct RePlayRePlay {
     frame: usize,
     p1_inputs: HashMap<usize, [bool; 10]>,
     p2_inputs: HashMap<usize, [bool; 10]>,
+    last_input_frame: Option<usize>,
     is_p2: bool,
 }
 
@@ -39,18 +40,30 @@ impl RePlayRePlay {
             p1_inputs: HashMap::new(),
             p2_inputs: HashMap::new(),
             is_p2: is_p1,
+            last_input_frame: None,
         }
     }
 
     fn read_input(&mut self) {
         // println!("read {}", unsafe { *SOKU_FRAMECOUNT });
+        let framecount = unsafe { *SOKU_FRAMECOUNT };
+        let input_frame = framecount + unsafe { LAST_DELAY_VALUE_TAKEOVER };
         let map = if self.is_p2 {
             &mut self.p2_inputs
         } else {
             &mut self.p1_inputs
         };
+        let input = unsafe { read_current_input() };
 
-        unsafe { map.insert(*SOKU_FRAMECOUNT, read_current_input()) };
+        if let Some(last_input_frame) = self.last_input_frame {
+            for f in (last_input_frame + 1)..=input_frame {
+                // emulate the netcode
+                map.insert(f, input);
+            }
+        } else {
+            map.insert(input_frame, input);
+        }
+        self.last_input_frame = Some(input_frame);
     }
 
     fn apply_input(&self) {
@@ -115,11 +128,17 @@ pub unsafe extern "cdecl" fn apause(_a: *mut ilhook::x86::Registers, _b: usize) 
 
 static mut D3D9_DEVICE: *mut *mut IDirect3DDevice9 = 0x008A0E30 as *mut *mut IDirect3DDevice9;
 
-pub unsafe fn render_replay_progress_bar(this: *mut c_void) {
+pub unsafe fn render_replay_progress_bar_and_numbers() {
     let gametype_main = *(0x898688 as *const u32);
     let is_netplay = *(0x8986a0 as *const usize) != 0;
     // assert!(ORI_BATTLE_WATCH_ON_RENDER.is_some());
-    if is_netplay || gametype_main != 2 || RE_PLAY.is_none() {
+    if is_netplay || gametype_main != 2 {
+        return;
+    }
+
+    draw_num((10.0, 466.0), LAST_DELAY_VALUE_TAKEOVER as i32);
+
+    if RE_PLAY.is_none() {
         return;
     }
 
@@ -504,6 +523,7 @@ pub unsafe fn handle_replay(
             if let Some(x) = &mut RE_PLAY {
                 x.is_p2 = false;
                 override_target_frame = Some(x.frame as u32 - 1);
+                x.last_input_frame = None;
                 RE_PLAY_PAUSE = 40;
             } else {
                 RE_PLAY = Some(RePlayRePlay::new(framecount + 1, false));
@@ -515,6 +535,7 @@ pub unsafe fn handle_replay(
             if let Some(x) = &mut RE_PLAY {
                 x.is_p2 = true;
                 override_target_frame = Some(x.frame as u32 - 1);
+                x.last_input_frame = None;
                 RE_PLAY_PAUSE = 40;
             } else {
                 RE_PLAY = Some(RePlayRePlay::new(framecount + 1, true));
@@ -531,8 +552,9 @@ pub unsafe fn handle_replay(
 
         let rdown = read_key_if_no_test(scheme[3]);
         if rdown {
-            if let Some(rprp) = &RE_PLAY {
+            if let Some(rprp) = RE_PLAY.as_mut() {
                 override_target_frame = Some(rprp.frame as u32 - 1);
+                rprp.last_input_frame = None;
                 RE_PLAY_PAUSE = 40;
             }
         }
@@ -797,6 +819,8 @@ pub unsafe fn handle_replay(
            *cur_speed_iter = 1024;
        }
     */
+    LAST_DELAY_VALUE_TAKEOVER = change_delay_from_keys(LAST_DELAY_VALUE_TAKEOVER);
+
     if RE_PLAY.is_none() {
         let speed = 4096;
 

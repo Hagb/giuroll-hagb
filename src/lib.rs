@@ -528,6 +528,8 @@ fn truer_exec(filename: PathBuf) -> Option<()> {
         cfg!(feature = "allocconsole") || ISDEBUG,
     );
     let enable_check_mode = read_ini_bool(&conf, "Misc", "enable_check_mode", false);
+    let default_delay_takeover =
+        read_ini_int_hex(&conf, "Takeover", "default_delay", 0).clamp(0, 9);
     let outer_color: D3DCOLOR = read_ini_int_hex(
         &conf,
         "Takeover",
@@ -640,6 +642,7 @@ fn truer_exec(filename: PathBuf) -> Option<()> {
         DEFAULT_DELAY_VALUE = default_delay as usize;
         AUTODELAY_ENABLED = autodelay_enabled;
         AUTODELAY_ROLLBACK = autodelay_rollback as i8;
+        LAST_DELAY_VALUE_TAKEOVER = default_delay_takeover as usize;
         OUTER_COLOR = outer_color;
         INSIDE_COLOR = inside_color;
         PROGRESS_COLOR = progress_color;
@@ -1003,7 +1006,7 @@ fn truer_exec(filename: PathBuf) -> Option<()> {
         if let Some(x) = NEXT_DRAW_ENEMY_DELAY {
             draw_num((20.0, 466.0), x);
         }
-        render_replay_progress_bar(0 as _);
+        render_replay_progress_bar_and_numbers();
 
         if WARNING_FRAME_LOST_COUNTDOWN.load(Relaxed) != 0
             && WARNING_FRAME_LOST_COUNTDOWN.fetch_sub(1, Relaxed) != 0
@@ -1774,7 +1777,8 @@ use core::sync::atomic::AtomicU8;
 use crate::{
     netcode::{send_packet, send_packet_untagged},
     replay::{
-        apause, clean_replay_statics, handle_replay, is_replay_over, render_replay_progress_bar,
+        apause, clean_replay_statics, handle_replay, is_replay_over,
+        render_replay_progress_bar_and_numbers,
     },
     rollback::CHARSIZEDATA,
 };
@@ -2163,6 +2167,8 @@ static mut MEMORY_RECEIVER_ALLOC: Option<std::sync::mpsc::Receiver<usize>> = Non
 static mut LAST_DELAY_VALUE: usize = 0;
 static mut DEFAULT_DELAY_VALUE: usize = 0;
 
+static mut LAST_DELAY_VALUE_TAKEOVER: usize = 0;
+
 static mut AUTODELAY_ENABLED: bool = false;
 static mut AUTODELAY_ROLLBACK: i8 = 0;
 
@@ -2260,6 +2266,22 @@ fn resume(battle_state: &mut u32) {
 }
 //        info!("GAMETYPE TRUE {}", *(0x89868c as *const usize));
 
+unsafe fn change_delay_from_keys(ori: usize) -> usize {
+    let k_up = read_key_better(INCREASE_DELAY_KEY);
+    let k_down = read_key_better(DECREASE_DELAY_KEY);
+
+    let last_up = LAST_DELAY_MANIP & 1 == 1;
+    let last_down = LAST_DELAY_MANIP & 2 == 2;
+    LAST_DELAY_MANIP = k_up as u8 + k_down as u8 * 2;
+    if !last_up && k_up {
+        ori.saturating_add(1).clamp(0, 9)
+    } else if !last_down && k_down {
+        ori.saturating_sub(1)
+    } else {
+        ori
+    }
+}
+
 unsafe fn handle_online(
     framecount: usize,
     battle_state: &mut u32,
@@ -2315,25 +2337,9 @@ unsafe fn handle_online(
     LAST_TOGGLE = stat_toggle;
 
     if *cur_speed_iter == 0 {
-        let k_up = read_key_better(INCREASE_DELAY_KEY);
-        let k_down = read_key_better(DECREASE_DELAY_KEY);
+        LAST_DELAY_VALUE = change_delay_from_keys(LAST_DELAY_VALUE);
 
-        let last_up = LAST_DELAY_MANIP & 1 == 1;
-        let last_down = LAST_DELAY_MANIP & 2 == 2;
-
-        if !last_up && k_up {
-            if netcoder.delay < 9 {
-                netcoder.delay += 1;
-            }
-        }
-
-        if !last_down && k_down {
-            if netcoder.delay > 0 {
-                netcoder.delay -= 1;
-            }
-        }
-        LAST_DELAY_VALUE = netcoder.delay;
-        LAST_DELAY_MANIP = k_up as u8 + k_down as u8 * 2;
+        netcoder.delay = LAST_DELAY_VALUE;
 
         let input = read_current_input();
         let speed = netcoder.process_and_send(rollbacker, input);
