@@ -421,7 +421,7 @@ impl Eq for F32 {}
 
 #[derive(Debug, PartialEq, Eq)]
 struct CameraActualTransform {
-    affected_only_by_smooth1: [F32; 4], // scale and background transform
+    affected_only_by_smooth1: [F32; 3], // scale and background transform
     affected_only_by_smooth2: [F32; 2], // shake degrees
     shake_affected_by_game_and_smooth: F32, // shake
     determined_by_shake: [F32; 2],      // shake x y
@@ -432,7 +432,7 @@ impl CameraActualTransform {
     unsafe fn dump() -> Self {
         let camera: usize = 0x00898600;
         Self {
-            affected_only_by_smooth1: *((camera + 0x14) as *const [F32; 4]),
+            affected_only_by_smooth1: *((camera + 0x14) as *const [F32; 3]),
             affected_only_by_smooth2: *((camera + 0x38) as *const [F32; 2]),
             shake_affected_by_game_and_smooth: *((camera + 0x40) as *const F32),
             determined_by_shake: *((camera + 0x30) as *const [F32; 2]),
@@ -450,7 +450,7 @@ impl CameraActualTransform {
     }
     unsafe fn restore_affected_only_by_smooth(&self) {
         let camera: usize = 0x00898600;
-        *((camera + 0x14) as *mut [F32; 4]) = self.affected_only_by_smooth1;
+        *((camera + 0x14) as *mut [F32; 3]) = self.affected_only_by_smooth1;
         *((camera + 0x38) as *mut [F32; 2]) = self.affected_only_by_smooth2;
     }
     unsafe fn restore_shake_affected_by_game_and_smooth(&self) {
@@ -1070,6 +1070,7 @@ fn truer_exec(filename: PathBuf) -> Option<()> {
                 last_smoothed.shake_affected_by_game_and_smooth =
                     ideal_before_smoothed.shake_affected_by_game_and_smooth;
                 last_smoothed.validate_determined_by_shake();
+                last_smoothed.restore_determined_by_shake();
                 last_smoothed.restore_affected_only_by_smooth();
                 last_smoothed.restore_shake_affected_by_game_and_smooth();
                 // others are either affected only by game or determined by smooth.
