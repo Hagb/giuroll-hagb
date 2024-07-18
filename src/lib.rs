@@ -1047,21 +1047,29 @@ fn truer_exec(filename: PathBuf) -> Option<()> {
             CAMERA_IDEAL_BACKUP.is_none(),
             "The backup camera is not used, probably causing desync!"
         );
-        if SMOOTH_BACKGROUND && !CURRENTLY_PAUSED && (gametype_main, is_netplay) == (1, true) {
+        if SMOOTH_BACKGROUND && (gametype_main, is_netplay) == (1, true) {
             let ideal = CameraTransform::dump();
             if let Some(mut last_smoothed) = CAMERA_ACTUAL_SMOOTH_TRANSFORM.take() {
-                // smooth camera
-                // Without rollback, it is expected to provide the same graphics with the ideal one.
+                // smooth camera:
+                // If there isn't rollback, it is expected to provide the graphics same with the ideal one.
                 // So set the "shake" field.
-                last_smoothed.shake_affected_by_game_and_smooth = F32 {
-                    f: LAST_SHAKE_BEFORE_SMOOTH,
-                };
-                last_smoothed.validate_determined_by_shake();
-                last_smoothed.restore_all();
-                let transform_smoothly: unsafe extern "thiscall" fn(usize) =
-                    std::mem::transmute(0x429040);
-                let camera: usize = 0x00898600;
-                transform_smoothly(camera);
+                if CURRENTLY_PAUSED {
+                    // If this frame is paused, don't set shake or smooth again, because it has been
+                    // smoothed and the graphic is expected to be frozen when the frame is paused.
+                    // It has been smoothed because the current netcode will not pause after stepping.
+                    // However it is still necessary to restore, since the camera was also covered.
+                    last_smoothed.restore_all();
+                } else {
+                    last_smoothed.shake_affected_by_game_and_smooth = F32 {
+                        f: LAST_SHAKE_BEFORE_SMOOTH,
+                    };
+                    last_smoothed.validate_determined_by_shake();
+                    last_smoothed.restore_all();
+                    let transform_smoothly: unsafe extern "thiscall" fn(usize) =
+                        std::mem::transmute(0x429040);
+                    let camera: usize = 0x00898600;
+                    transform_smoothly(camera);
+                }
                 let smoothed = CameraTransform::dump();
                 assert_eq!(
                     smoothed.shake_affected_by_game_and_smooth,
@@ -1085,7 +1093,7 @@ fn truer_exec(filename: PathBuf) -> Option<()> {
 
     static mut WARNING_FRAME_LOST_COUNTDOWN: AtomicU32 = AtomicU32::new(0);
     unsafe extern "cdecl" fn after_render_battle(_a: *mut ilhook::x86::Registers, _b: usize) {
-        if SMOOTH_BACKGROUND && let Some(ideal) = CAMERA_IDEAL_BACKUP.take() {
+        if let Some(ideal) = CAMERA_IDEAL_BACKUP.take() {
             // dump smoothed camera
             CAMERA_ACTUAL_SMOOTH_TRANSFORM = Some(CameraTransform::dump());
             ideal.restore_all();
