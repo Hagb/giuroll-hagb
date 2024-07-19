@@ -424,9 +424,9 @@ struct CameraTransform {
     affected_only_by_smooth1: [F32; 3], // scale and background transform
     affected_only_by_smooth2: [F32; 2], // shake degrees
     shake_affected_by_game_and_smooth: F32, // shake
-    determined_by_shake: [F32; 2],      // shake x y
     determined_by_smooth1: [F32; 2],    // final transform
     determined_by_smooth2: [F32; 4],    // unknown
+    determined_by_smooth3: [F32; 2],    // shake x y
 }
 impl CameraTransform {
     unsafe fn dump() -> Self {
@@ -435,7 +435,7 @@ impl CameraTransform {
             affected_only_by_smooth1: *((camera + 0x14) as *const [F32; 3]),
             affected_only_by_smooth2: *((camera + 0x38) as *const [F32; 2]),
             shake_affected_by_game_and_smooth: *((camera + 0x40) as *const F32),
-            determined_by_shake: *((camera + 0x30) as *const [F32; 2]),
+            determined_by_smooth3: *((camera + 0x30) as *const [F32; 2]),
             determined_by_smooth1: *((camera + 0x0c) as *const [F32; 2]),
             determined_by_smooth2: *((camera + 0x5c) as *const [F32; 4]),
         }
@@ -445,7 +445,6 @@ impl CameraTransform {
         self.restore_affected_only_by_smooth();
         self.restore_shake_affected_by_game_and_smooth();
         self.restore_determined_by_smooth();
-        self.restore_determined_by_shake();
         ori
     }
     unsafe fn restore_affected_only_by_smooth(&self) {
@@ -457,19 +456,16 @@ impl CameraTransform {
         let camera: usize = 0x00898600;
         *((camera + 0x40) as *mut F32) = self.shake_affected_by_game_and_smooth;
     }
-    unsafe fn restore_determined_by_shake(&self) {
-        let camera: usize = 0x00898600;
-        *((camera + 0x30) as *mut [F32; 2]) = self.determined_by_shake;
-    }
-    unsafe fn validate_determined_by_shake(&mut self) {
-        if self.shake_affected_by_game_and_smooth.f <= 1.0 {
-            self.determined_by_shake = [F32 { f: 0.0 }, F32 { f: 0.0 }];
-        }
-    }
     unsafe fn restore_determined_by_smooth(&self) {
         let camera: usize = 0x00898600;
         *((camera + 0x0c) as *mut [F32; 2]) = self.determined_by_smooth1;
         *((camera + 0x5c) as *mut [F32; 4]) = self.determined_by_smooth2;
+        *((camera + 0x30) as *mut [F32; 2]) = self.determined_by_smooth3;
+    }
+    unsafe fn validate_after_partially_modified(&mut self) {
+        if self.shake_affected_by_game_and_smooth.f <= 1.0 {
+            self.determined_by_smooth3 = [F32 { f: 0.0 }, F32 { f: 0.0 }];
+        }
     }
 }
 
@@ -1063,7 +1059,7 @@ fn truer_exec(filename: PathBuf) -> Option<()> {
                     last_smoothed.shake_affected_by_game_and_smooth = F32 {
                         f: LAST_SHAKE_BEFORE_SMOOTH,
                     };
-                    last_smoothed.validate_determined_by_shake();
+                    last_smoothed.validate_after_partially_modified();
                     last_smoothed.restore_all();
                     let transform_smoothly: unsafe extern "thiscall" fn(usize) =
                         std::mem::transmute(0x429040);
@@ -1075,7 +1071,6 @@ fn truer_exec(filename: PathBuf) -> Option<()> {
                     smoothed.shake_affected_by_game_and_smooth,
                     ideal.shake_affected_by_game_and_smooth
                 );
-                assert_eq!(smoothed.determined_by_shake, ideal.determined_by_shake);
             }
             CAMERA_IDEAL_BACKUP = Some(ideal);
         }
