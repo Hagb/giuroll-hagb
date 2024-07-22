@@ -854,7 +854,7 @@ fn truer_exec(filename: PathBuf) -> Option<()> {
         SMOOTH_ENABLED_CONFIG = smooth_camera;
         let half_life_to_correction = |half_life: i64| match half_life {
             0 => 1.0,
-            x => 1.0 - 0.5_f32.powf(1.0 / x.max(0) as f32),
+            x => 1.0 - 0.5_f32.powf(1.0 / x.max(1) as f32),
         };
         SMOOTH_INCREASING_SCALE_CORRECTION =
             Some(half_life_to_correction(smooth_decreasing_scale_correction));
