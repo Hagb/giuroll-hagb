@@ -975,6 +975,7 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
         unsafe { ilhook::x86::Hooker::new(0x482701, HookType::JmpBack(main_hook), 0).hook(6) };
     std::mem::forget(new);
 
+    let handle_sound_real_ret = vec![0x401d58, 0x401db7];
     //0x899d60 maybe sound manager?
     unsafe extern "cdecl" fn handle_sound_real(
         a: *mut ilhook::x86::Registers,
@@ -990,11 +991,11 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
         let soundid = (*a).eax as usize;
 
         if DISABLE_SOUND {
-            return 0x401db7;
+            return 1;
         }
 
         if !BATTLE_STARTED || soundid == 0 {
-            return if soundid == 0 { 0x401db7 } else { 0x401d58 };
+            return if soundid == 0 { 1 } else { 0 };
         }
 
         if let Some(manager) = SOUND_MANAGER.as_mut()
@@ -1008,26 +1009,27 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
             //);
             if manager.insert_sound(*SOKU_FRAMECOUNT, soundid) {
                 //println!("sound {} accepted at frame {}", soundid, *SOKU_FRAMECOUNT);
-                0x401d58
+                0
             } else {
                 //println!("sound {} rejected at frame {} because it was already present", soundid, *SOKU_FRAMECOUNT);
-                0x401db7
+                1
             }
         } else {
-            0x401d58
+            0
         }
     }
 
     let new = unsafe {
         ilhook::x86::Hooker::new(
             0x401d50, // 0x482820, //0x482532, sokuroll <-
-            HookType::JmpToRet(handle_sound_real),
+            HookType::JmpToEnumRet(handle_sound_real_ret, handle_sound_real),
             0,
         )
         .hook(6)
     };
     std::mem::forget(new);
 
+    let soundskiphook1_ret = vec![0x401db6, 0x401d8c, 0x401d81];
     unsafe extern "cdecl" fn soundskiphook1(
         a: *mut ilhook::x86::Registers,
         _b: usize,
@@ -1047,16 +1049,16 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
 
             true_fun(ecx, eax /*, *(((*a).esp + 0x8)  as *const u32)*/);
 
-            0x401db6
+            0
         } else {
             //replicate the usual logic
 
             // Soku2 unaligned (can be triggered with the b bullet of Flandre):
             //if ((*ptr_wrap!(((*a).esp + 8) as *const usize)) & 1) == 0 {
             if ((((*a).esp + 8) as *const usize).read_unaligned() & 1) == 0 {
-                0x401d8c
+                1
             } else {
-                0x401d81
+                2
             }
         }
     }
@@ -1064,7 +1066,7 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
     let new = unsafe {
         ilhook::x86::Hooker::new(
             0x401d7a, // 0x482820, //0x482532, sokuroll <-
-            HookType::JmpToRet(soundskiphook1),
+            HookType::JmpToEnumRet(soundskiphook1_ret, soundskiphook1),
             0,
         )
         .hook(5)
@@ -1177,6 +1179,7 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
     let new = unsafe { ilhook::x86::Hooker::new(0x481960, HookType::JmpBack(on_exit), 0).hook(6) };
     std::mem::forget(new);
 
+    let spectator_skip_ret = vec![0x42daac, 0x42db21];
     unsafe extern "cdecl" fn spectator_skip(
         a: *mut ilhook::x86::Registers,
         _b: usize,
@@ -1197,7 +1200,7 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
             (*a).ebx = *ptr_wrap!(((*a).esi + 0x48) as *const u32);
             (*a).ecx = framecount_cur;
 
-            0x42daac
+            0
         } else {
             //println!("here 3");
             /*
@@ -1206,13 +1209,18 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
             // probably Soku2 unaligned
             // (*a).ebx = *ptr_wrap!(((*a).esp + 0x1c) as *const u32);
             (*a).ebx = (((*a).esp + 0x1c) as *const u32).read_unaligned();
-            0x42db21
+            1
         }
     }
 
     // changes the spectator logic to only send frame if there are at least 10 frames in the buffer. this prevent spectator from desyncing
     let new = unsafe {
-        ilhook::x86::Hooker::new(0x42daa6, HookType::JmpToRet(spectator_skip), 0).hook(6)
+        ilhook::x86::Hooker::new(
+            0x42daa6,
+            HookType::JmpToEnumRet(spectator_skip_ret, spectator_skip),
+            0,
+        )
+        .hook(6)
     };
     std::mem::forget(new);
 
@@ -1721,6 +1729,7 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
     };
     std::mem::forget(new);
 
+    let skiponcehost_ret = vec![0x428393, 0x428360, 0x428335];
     unsafe extern "cdecl" fn skiponcehost(
         a: *mut ilhook::x86::Registers,
         _b: usize,
@@ -1728,7 +1737,7 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
     ) -> usize {
         if ESC > 120 {
             //old mechanism
-            0x428393
+            0
         } else {
             //let skip = DISABLE_SEND.load(Relaxed) != 0;
             //DISABLE_SEND.store(1, Relaxed);
@@ -1736,11 +1745,11 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
             let skip = true;
 
             if skip {
-                0x428360
+                1
             } else {
                 (*a).ecx = *ptr_wrap!(((*a).edi + 0x8) as *const u32);
                 (*a).eax = *ptr_wrap!(((*a).ecx) as *const u32);
-                0x428335
+                2
             }
         }
     }
@@ -1756,10 +1765,17 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
     /*
     00481980 hm
      */
-    let new =
-        unsafe { ilhook::x86::Hooker::new(0x428330, HookType::JmpToRet(skiponcehost), 0).hook(5) };
+    let new = unsafe {
+        ilhook::x86::Hooker::new(
+            0x428330,
+            HookType::JmpToEnumRet(skiponcehost_ret, skiponcehost),
+            0,
+        )
+        .hook(5)
+    };
     std::mem::forget(new);
 
+    let skiponceclient_ret = vec![0x4286c3, 0x428630, 0x428605];
     unsafe extern "cdecl" fn skiponceclient(
         a: *mut ilhook::x86::Registers,
         _b: usize,
@@ -1767,7 +1783,7 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
     ) -> usize {
         if ESC > 120 {
             //old mechanism
-            0x4286c3
+            0
         } else {
             //let skip = DISABLE_SEND.load(Relaxed) != 0;
             //DISABLE_SEND.store(1, Relaxed);
@@ -1775,11 +1791,11 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
             let skip = true;
 
             if skip {
-                0x428630
+                1
             } else {
                 (*a).ecx = *ptr_wrap!(((*a).edi + 0x8) as *const u32);
                 (*a).eax = *ptr_wrap!(((*a).ecx) as *const u32);
-                0x428605
+                2
             }
         }
     }
@@ -1800,7 +1816,12 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
     //not sure why client has two "esc" spaces but I'm not going to question it
 
     let new = unsafe {
-        ilhook::x86::Hooker::new(0x428600, HookType::JmpToRet(skiponceclient), 0).hook(5)
+        ilhook::x86::Hooker::new(
+            0x428600,
+            HookType::JmpToEnumRet(skiponceclient_ret, skiponceclient),
+            0,
+        )
+        .hook(5)
     };
     std::mem::forget(new);
 
@@ -1873,6 +1894,7 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
                 if let Some(event) = *event
                     && WaitForSingleObject(HANDLE(event), 0).0 == 0
                 {
+                    println!("frame costed too much time!");
                     WARNING_FRAME_LOST_COUNTDOWN.store(120, Relaxed);
                 }
             }
@@ -2029,10 +2051,12 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
         })
     };
 
-    let new = unsafe {
-        ilhook::x86::Hooker::new(0x00482689, HookType::JmpToRet(is_replay_over), 0).hook(5)
-    };
-    std::mem::forget(new);
+    unsafe {
+        tamper_jmp_relative_opr(
+            0x00482689 as *mut c_void,
+            is_replay_over as unsafe extern "fastcall" fn(_) -> _,
+        );
+    }
 
     Ok(())
 }
