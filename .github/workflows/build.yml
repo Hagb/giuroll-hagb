@@ -15,12 +15,41 @@ env:
   # Hardcode SOURCE_URL_BASE with "https://github.com/Hagb/giuroll-hagb" if you want to reproduce the build
   # in https://github.com/Hagb/giuroll-hagb/actions bit-for-bit.
   SOURCE_URL_BASE: ${{ github.server_url }}/${{ github.repository }}
+  MSVC_MANIFEST: "https://download.visualstudio.microsoft.com/download/pr/11917f82-1030-4dda-a768-f0da3c4623a9/f3cb4f83005ad314ec45dac55db831a160d1af42c14db43e44eb7486d73212cf/VisualStudio.vsman"
+  # VS_PATH: "C:\\msvc-14.40\\"
+  VS_PATH: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise"
+  TOOLSET_VER: "14.40.33807"
 
 jobs:
   build:
     name: build
     runs-on: windows-2022
     steps:
+      - run: |
+          git clone https://github.com/mstorsjo/msvc-wine.git
+          mv "C:\\Program Files\\Microsoft Visual Studio\\" "C:\\Program Files\\Microsoft Visual Studio - bak"
+          python ./msvc-wine/vsdownload.py --accept-license --skip-recommended --dest "${{ env.VS_PATH }}" `
+            --manifest ${{ env.MSVC_MANIFEST }} `
+            Microsoft.VisualStudio.Component.VC.Tools.x86.x64
+          # dirty hack
+          # # echo "CARGO_TARGET_I686_PC_WINDOWS_MSVC_LINKER=C:/msvc-14.40/VC/Tools/MSVC/14.40.33807/bin/Hostx64/x86/link.exe" >> $env:GITHUB_ENV
+          # # echo "CARGO_TARGET_I686_WIN7_WINDOWS_MSVC_LINKER=C:/msvc-14.40/VC/Tools/MSVC/14.40.33807/bin/Hostx64/x86/link.exe" >> $env:GITHUB_ENV
+          # $installer = Invoke-DownloadWithRetry "https://aka.ms/vs/17/release/vs_enterprise.exe"
+          # # echo Uninstall
+          # # cmd /c "$installer" uninstall --quiet --norestart --nocache --wait
+          # echo Install
+          # cmd /c "$installer" modify --quiet --norestart --nocache --wait --installPath "${{ env.VS_PATH }}" `
+          #   --channelId VisualStudio.17.Release --add Microsoft.VisualStudio.Component.VC.14.40.17.10.x86.x64 `
+          #   --installChannelUri https://raw.githubusercontent.com/roblabla/msvc-manifest-history/53d363e801b1f1be225c337c7fa052c2a3296eeb/raw_channel.json `
+          #   --channelUri https://raw.githubusercontent.com/roblabla/msvc-manifest-history/53d363e801b1f1be225c337c7fa052c2a3296eeb/raw_channel.json
+          $linker = "${{ env.VS_PATH }}\\VC\\Tools\\MSVC\\${{ env.TOOLSET_VER }}\\bin\\HostX64\\x86\\link.exe"
+          echo "CARGO_TARGET_I686_PC_WINDOWS_MSVC_LINKER=${linker}" >> $env:GITHUB_ENV
+          echo "CARGO_TARGET_I686_WIN7_WINDOWS_MSVC_LINKER=${linker}" >> $env:GITHUB_ENV
+      - uses: TheMrMilchmann/setup-msvc-dev@v3
+        with:
+          arch: amd64_x86
+          vs-path: ${{ env.VS_PATH }}
+          toolset: "${{ env.TOOLSET_VER }}"
       - uses: actions/checkout@v4
         with:
           submodules: recursive
