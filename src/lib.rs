@@ -47,7 +47,7 @@ use sound::RollbackSoundManager;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::LibraryLoader::GetModuleFileNameW;
-use windows::Win32::System::Memory::HEAP_FLAGS;
+use windows::Win32::System::Memory::{HEAP_FLAGS, HEAP_ZERO_MEMORY};
 use windows::Win32::{
     Foundation::{GetLastError, HMODULE, HWND},
     Networking::WinSock::{closesocket, SOCKADDR, SOCKET},
@@ -2110,6 +2110,27 @@ use windows::Win32::System::Threading::GetCurrentThreadId;
 #[cfg(feature = "fillfree")]
 static mut HEAP_FREE_RNG: Option<rand::rngs::ThreadRng> = None;
 
+#[cfg(feature = "fillfree")]
+unsafe fn fill_random(addr: usize, size: Option<usize>) {
+    use crate::rollback::read_heap;
+    let size = size.or_else(|| Some(read_heap(addr))).unwrap();
+    let a = std::slice::from_raw_parts_mut(addr as *mut u8, size);
+    use rand::{thread_rng, Rng};
+    if HEAP_FREE_RNG.is_none() {
+        HEAP_FREE_RNG = Some(thread_rng());
+    }
+    let rng = HEAP_FREE_RNG.as_mut().unwrap();
+    for byte in a {
+        // (3/4)^4 is approximately equal to 0.32.
+        // The possibility that a specific int32_t will be filled zero will be approximately equal to 0.32.
+        if rng.gen_ratio(3, 4) {
+            *byte = 0;
+        } else {
+            *byte = rng.gen();
+        }
+    }
+}
+
 #[macro_export]
 macro_rules! soku_heap_free {
     ($ptr:expr) => {{
@@ -2120,15 +2141,8 @@ macro_rules! soku_heap_free {
         let a: usize = $ptr;
         #[cfg(feature = "fillfree")]
         {
-            use crate::rollback::read_heap;
-            let size = read_heap(a);
-            let a = std::slice::from_raw_parts_mut(a as *mut u8, size);
-            use crate::HEAP_FREE_RNG;
-            use rand::{thread_rng, Rng};
-            if HEAP_FREE_RNG.is_none() {
-                HEAP_FREE_RNG = Some(thread_rng());
-            }
-            HEAP_FREE_RNG.as_mut().unwrap().fill(a);
+            use crate::fill_random;
+            fill_random(a, None);
         }
         HeapFree(
             HANDLE(*(0x89b404 as *const isize)),
@@ -2223,6 +2237,10 @@ unsafe extern "stdcall" fn heap_alloc_override(heap: isize, flags: u32, s: usize
         //println!("wrong heap alloc");
     } else {
         assert_ne!(ret, null_mut(), "HeapAlloc failed for {:?}", GetLastError());
+        #[cfg(feature = "fillfree")]
+        if flags & HEAP_ZERO_MEMORY.0 == 0 {
+            fill_random(ret as usize, Some(s));
+        }
         store_alloc(ret as usize);
     }
     return ret;
