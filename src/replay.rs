@@ -239,7 +239,8 @@ pub unsafe fn clean_replay_statics() {
         set_keys_availability_in_takeover(true);
     }
     NEXT_DRAW_ROLLBACK = None;
-    PERFORMANCE_TEST = None
+    PERFORMANCE_TEST = None;
+    DISABLE_SOUND = false;
 }
 
 unsafe fn set_keys_availability_in_takeover(enable: bool) {
