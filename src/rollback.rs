@@ -560,7 +560,7 @@ pub unsafe fn dump_frame(
                 m.push(a.to_addr());
                 let d = a.additional_data;
                 if d != 0 {
-                    let z = CHARSIZEDATA[char as usize % CHARSIZEDATA.len()].1;
+                    let z = CHARSIZEDATA[char as usize].1;
                     let bullet = read_addr(d, z);
                     let p1 = get_ptr(&bullet.content, 0x3a4);
 
@@ -635,7 +635,7 @@ pub unsafe fn dump_frame(
         let char = old + 0x34c;
         let char = *(char as *const u8);
 
-        let cdat = read_addr(old, CHARSIZEDATA[char as usize % CHARSIZEDATA.len()].0);
+        let cdat = read_addr(old, CHARSIZEDATA[char as usize].0);
 
         let bullets = old + 0x17c;
         read_bullets(bullets, char, m);
