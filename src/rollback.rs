@@ -436,7 +436,7 @@ pub unsafe fn dump_frame(
     if ISDEBUG {
         info!("0x8985e8")
     };
-    let read_weird_structure = |m: &mut Vec<_>, pos: usize, size: usize| {
+    unsafe fn read_weird_structure(m: &mut Vec<ReadAddr>, pos: usize, size: usize) {
         //I'm not quite sure what's going on here, or if it's infact correct
         let dat = read_addr(pos, 0x14);
         let n = dat.usize_align();
@@ -542,7 +542,7 @@ pub unsafe fn dump_frame(
         info!("0x8985e4")
     };
 
-    let read_player_data = |player: usize, m: &mut Vec<_>| {
+    unsafe fn read_player_data(player: usize, m: &mut Vec<ReadAddr>) {
         let read_bullets = |pos: usize, char: u8, m: &mut Vec<_>| {
             let list = read_linked_list(pos);
 
@@ -636,6 +636,20 @@ pub unsafe fn dump_frame(
         if char == 5 {
             //youmu
             read_weird_structure(m, player + 0x8bc, 0x2c);
+        }
+
+        if char == 0x37 {
+            // Mamizou of CharacterEngine (https://github.com/SokuDev/CharacterEngine).
+            // Hardcoding it is just a temporary workaround.
+            // TODO: it should be exposed with APIs and implemented by developers of characters mods.
+            // More specific:
+            // - Comments. renaming, and even refactoring (for self-documenting code) to figure what they are exactly (mostly for myself to write APIs clearly);
+            // - APIs for developers to ask GR to save/restore an address as a specific data structure, mostly Player, List, Vector, GameObject, String, and sized array;
+            // - C++ header for these APIs.
+            let extra_char = get_ptr(&cdat.content, 0x890);
+            if extra_char != 0 {
+                read_player_data(extra_char, m);
+            }
         }
 
         let ll = read_linked_list(player + 0x718);
