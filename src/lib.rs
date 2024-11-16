@@ -284,8 +284,10 @@ pub extern "cdecl" fn CheckVersion(a: *const [u8; 16]) -> bool {
     unsafe { *ptr_wrap!(a) == HASH110A }
 }
 
-static mut REAL_INPUT: Option<[bool; 10]> = None;
-static mut REAL_INPUT2: Option<[bool; 10]> = None;
+const INPUT_KEYS_NUMBERS: usize = 12;
+
+static mut REAL_INPUT: Option<[bool; INPUT_KEYS_NUMBERS]> = None;
+static mut REAL_INPUT2: Option<[bool; INPUT_KEYS_NUMBERS]> = None;
 
 static mut UPDATE: Option<SystemTime> = None;
 static mut TARGET: Option<u128> = None;
@@ -1659,13 +1661,13 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
         //        0046c902 8b ae 6c        MOV        EBP,dword ptr [ESI + 0x76c]
 
         (*a).ebp = *ptr_wrap!(((*a).esi + 0x76c) as *const u32);
-        let input_manager = (*a).ecx;
+        let input_manager = (*a).ecx as usize;
 
         let real_input = match std::mem::replace(&mut REAL_INPUT, REAL_INPUT2.take()) {
             Some(x) => x,
             None => {
                 IS_FIRST_READ_INPUTS = false;
-                let f = std::mem::transmute::<usize, extern "fastcall" fn(u32)>(0x040a370);
+                let f = std::mem::transmute::<usize, extern "fastcall" fn(usize)>(0x040a370);
                 (f)(input_manager);
                 return;
             }
@@ -1704,7 +1706,7 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
             }
         }
 
-        for a in 0..6 {
+        for a in 0..(INPUT_KEYS_NUMBERS - 4) {
             let v = &mut *ptr_wrap!((input_manager + 0x40 + a * 4) as *mut u32);
 
             if real_input[a as usize + 4] {
@@ -1716,7 +1718,7 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
 
         let m = &mut *ptr_wrap!((input_manager + 0x62) as *mut u16);
         *m = 0;
-        for a in 0..10 {
+        for a in 0..INPUT_KEYS_NUMBERS {
             if real_input[a] {
                 *m += 1 << a;
             }
@@ -2088,7 +2090,7 @@ pub extern "cdecl" fn cleanup() {
         .for_each(|x| unsafe { x.unhook() });
 }
 
-unsafe fn set_input_buffer(input: [bool; 10], input2: [bool; 10]) {
+unsafe fn set_input_buffer(input: [bool; INPUT_KEYS_NUMBERS], input2: [bool; INPUT_KEYS_NUMBERS]) {
     REAL_INPUT = Some(input);
     REAL_INPUT2 = Some(input2);
 }
@@ -2658,9 +2660,9 @@ static DISABLE_SEND: AtomicU8 = AtomicU8::new(0);
 
 //todo: improve rewind mechanism
 
-fn input_to_accum(inp: &[bool; 10]) -> u16 {
+fn input_to_accum(inp: &[bool; INPUT_KEYS_NUMBERS]) -> u16 {
     let mut inputaccum = 0u16;
-    for a in 0..10 {
+    for a in 0..INPUT_KEYS_NUMBERS {
         if inp[a] {
             inputaccum += 0x1 << a;
         }
@@ -2674,17 +2676,17 @@ unsafe fn read_key_better(key: u8) -> bool {
     *((raw_input_buffer + key as u32) as *const u8) != 0
 }
 
-unsafe fn read_current_input() -> [bool; 10] {
+unsafe fn read_current_input() -> [bool; INPUT_KEYS_NUMBERS] {
     let local_input_manager = 0x898938;
     let raw_input_buffer = 0x8a01b8;
-    let mut input = [false; 10];
+    let mut input = [false; INPUT_KEYS_NUMBERS];
 
     let controller_id = *((local_input_manager + 0x4) as *const u8);
     //if 255, then keyboard, if 0, or maybe something else, then controller
 
     if controller_id == 255 {
         //no controllers, reading keyboard input
-        for a in 0..10 {
+        for a in 0..INPUT_KEYS_NUMBERS {
             let key = (local_input_manager + 0x8 + a * 0x4) as *const u8;
 
             let key = *key as u32;
@@ -2707,7 +2709,7 @@ unsafe fn read_current_input() -> [bool; 10] {
             input[0] = axis2 < -500;
             input[1] = axis2 > 500;
 
-            for a in 0..6 {
+            for a in 0..(INPUT_KEYS_NUMBERS - 4) {
                 let key = *ptr_wrap!((local_input_manager + 0x18 + a * 0x4) as *const i32);
 
                 if key > -1 {

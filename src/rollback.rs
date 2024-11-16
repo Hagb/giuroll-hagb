@@ -16,11 +16,11 @@ use windows::Win32::Foundation::HANDLE;
 use crate::println;
 use crate::{
     ptr_wrap, set_input_buffer, soku_heap_free, Callbacks, CameraTransform, CALLBACK_ARRAY,
-    ISDEBUG, LAST_CAMERA_BEFORE_SMOOTH, MEMORY_RECEIVER_ALLOC, MEMORY_RECEIVER_FREE,
-    SOKU_FRAMECOUNT, SOUND_MANAGER,
+    INPUT_KEYS_NUMBERS, ISDEBUG, LAST_CAMERA_BEFORE_SMOOTH, MEMORY_RECEIVER_ALLOC,
+    MEMORY_RECEIVER_FREE, SOKU_FRAMECOUNT, SOUND_MANAGER,
 };
 
-type RInput = [bool; 10];
+type RInput = [bool; INPUT_KEYS_NUMBERS];
 
 pub static mut CHARSIZEDATA: Vec<(usize, usize)> = vec![];
 
@@ -74,14 +74,14 @@ impl EnemyInputHolder {
     fn get_result(&self, frame: usize) -> Result<RInput, RInput> {
         match self.i.get(frame) {
             Some(Some(x)) => Ok(*x),
-            None if frame == 0 => Err([false; 10]),
+            None if frame == 0 => Err([false; INPUT_KEYS_NUMBERS]),
             Some(None) | None => {
                 /*
                     in the future maybe try dropping inputs for attacks that are about to charge?
                     let mut w = (1..3)
                         .map(|x| self.get(frame.saturating_sub(x)))
                         .reduce(|x, y| {
-                            (0..10)
+                            (0..INPUT_KEYS_NUMBERS)
                                 .map(|idx| x[idx] & y[idx])
                                 .collect::<Vec<_>>()
                                 .try_into()
@@ -199,7 +199,7 @@ impl Rollbacker {
                     .flatten()
                     .collect::<HashSet<_>>();
 
-                for idx in (self.current).saturating_sub(10)..=(self.current + 1) {
+                for idx in (self.current).saturating_sub(INPUT_KEYS_NUMBERS)..=(self.current + 1) {
                     if new_sounds.contains_key(&(self.current + 1)) {
                         println!("HERE, CONTAINS")
                     }

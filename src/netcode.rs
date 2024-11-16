@@ -8,8 +8,9 @@ use std::{
 use windows::Win32::Networking::WinSock::{SOCKADDR, SOCKET};
 
 use crate::{
-    input_to_accum, println, ptr_wrap, rollback::Rollbacker, LIKELY_DESYNCED, SOKU_FRAMECOUNT,
-    TARGET_OFFSET, WARNING_FRAME_MISSING_1_COUNTDOWN, WARNING_FRAME_MISSING_2_COUNTDOWN,
+    input_to_accum, println, ptr_wrap, rollback::Rollbacker, INPUT_KEYS_NUMBERS, LIKELY_DESYNCED,
+    SOKU_FRAMECOUNT, TARGET_OFFSET, WARNING_FRAME_MISSING_1_COUNTDOWN,
+    WARNING_FRAME_MISSING_2_COUNTDOWN,
 };
 
 #[derive(Clone, Debug)]
@@ -133,7 +134,7 @@ pub struct Netcoder {
     pub autodelay_enabled: Option<i8>,
 
     old_to_be_sent: Option<NetworkPacket>,
-    old_input: [bool; 10],
+    old_input: [bool; INPUT_KEYS_NUMBERS],
 }
 
 /// The packets are only sent once per frame; a packet contains all previous unconfirmed inputs; a lost "main" packet is not recovered whenever it's not neccesseary
@@ -169,7 +170,7 @@ impl Netcoder {
             autodelay_enabled: None,
 
             old_to_be_sent: None,
-            old_input: [false; 10],
+            old_input: [false; INPUT_KEYS_NUMBERS],
         }
     }
 
@@ -178,7 +179,7 @@ impl Netcoder {
     pub fn process_and_send(
         &mut self,
         rollbacker: &mut Rollbacker,
-        current_input: [bool; 10],
+        current_input: [bool; INPUT_KEYS_NUMBERS],
     ) -> u32 {
         let function_start_time = Instant::now();
 
@@ -409,7 +410,7 @@ impl Netcoder {
 
                     // todo: move into it's own function
 
-                    let inp = (0..10)
+                    let inp = (0..INPUT_KEYS_NUMBERS)
                         .into_iter()
                         .map(|x| (inp_a & (1 << x)) > 0)
                         .collect::<Vec<_>>()
@@ -509,14 +510,14 @@ impl Netcoder {
 
         let input_range = self.last_opponent_confirm..=input_head;
         let merged_current_input = self.old_input;
-        self.old_input = [false; 10];
+        self.old_input = [false; INPUT_KEYS_NUMBERS];
 
         // do not override existing inputs; this can happen when delay is changed
         while rollbacker.self_inputs.len() <= input_head {
             // rollbacking to frame 0 causes problems (such as crash)
             let index = rollbacker.self_inputs.len();
             rollbacker.self_inputs.push(match index {
-                0 => [false; 10],
+                0 => [false; INPUT_KEYS_NUMBERS],
                 _ => merged_current_input,
             });
         }
@@ -525,7 +526,7 @@ impl Netcoder {
             // rollbacking to frame 0 causes problems (such as crash)
             let index = self.inputs.len();
             self.inputs.push(input_to_accum(&match index {
-                0 => [false; 10],
+                0 => [false; INPUT_KEYS_NUMBERS],
                 _ => merged_current_input,
             }));
         }

@@ -3,10 +3,10 @@ use crate::{
     read_current_input, read_key_better, resume,
     rollback::{dump_frame, Frame, DUMP_FRAME_TIME},
     soku_heap_free, CENTER_X_P1, CENTER_X_P2, CENTER_Y_P1, CENTER_Y_P2, DISABLE_SOUND,
-    ENABLE_CHECK_MODE, F32, INSIDE_COLOR, INSIDE_HALF_HEIGHT, INSIDE_HALF_WIDTH,
-    LAST_DELAY_VALUE_TAKEOVER, MEMORY_RECEIVER_ALLOC, MEMORY_RECEIVER_FREE, NEXT_DRAW_ROLLBACK,
-    OUTER_COLOR, OUTER_HALF_HEIGHT, OUTER_HALF_WIDTH, PROGRESS_COLOR, REAL_INPUT, REAL_INPUT2,
-    SMOOTH, SMOOTH_ENABLED_CONFIG, SOKU_FRAMECOUNT, TAKEOVER_COLOR,
+    ENABLE_CHECK_MODE, F32, INPUT_KEYS_NUMBERS, INSIDE_COLOR, INSIDE_HALF_HEIGHT,
+    INSIDE_HALF_WIDTH, LAST_DELAY_VALUE_TAKEOVER, MEMORY_RECEIVER_ALLOC, MEMORY_RECEIVER_FREE,
+    NEXT_DRAW_ROLLBACK, OUTER_COLOR, OUTER_HALF_HEIGHT, OUTER_HALF_WIDTH, PROGRESS_COLOR,
+    REAL_INPUT, REAL_INPUT2, SMOOTH, SMOOTH_ENABLED_CONFIG, SOKU_FRAMECOUNT, TAKEOVER_COLOR,
 };
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -25,8 +25,8 @@ use windows::Win32::System::Console::AllocConsole;
 
 struct RePlayRePlay {
     frame: usize,
-    p1_inputs: HashMap<usize, [bool; 10]>,
-    p2_inputs: HashMap<usize, [bool; 10]>,
+    p1_inputs: HashMap<usize, [bool; INPUT_KEYS_NUMBERS]>,
+    p2_inputs: HashMap<usize, [bool; INPUT_KEYS_NUMBERS]>,
     last_input_frame: Option<usize>,
     is_p2: bool,
 }
@@ -78,7 +78,7 @@ impl RePlayRePlay {
             REAL_INPUT = if self.p1_inputs.get(&fc).is_none()
                 && REPLAY_KO_FRAMECOUNT == Some(*SOKU_FRAMECOUNT)
             {
-                Some([false; 10])
+                Some([false; INPUT_KEYS_NUMBERS])
             } else {
                 self.p1_inputs.get(&fc).copied()
             };
@@ -547,14 +547,14 @@ pub unsafe fn handle_replay(
 
     resume(battle_state);
 
-    unsafe fn get_input(is_p2: bool) -> [bool; 10] {
+    unsafe fn get_input(is_p2: bool) -> [bool; INPUT_KEYS_NUMBERS] {
         let p_battle_manager = *(0x008985E4 as *const *const u8);
         let player_addr: *const u8 = match is_p2 {
             true => *(p_battle_manager.offset(0x10) as *const _),
             false => *(p_battle_manager.offset(0xc) as *const _),
         };
         let addr: *const i32 = player_addr.offset(0x754) as *const i32;
-        let mut ret = [false; 10];
+        let mut ret = [false; INPUT_KEYS_NUMBERS];
         (ret[0], ret[1]) = (*addr.offset(1) < 0, *addr.offset(1) > 0);
         (ret[2], ret[3]) = (*addr.offset(0) < 0, *addr.offset(0) > 0);
         for i in 2..8 {
