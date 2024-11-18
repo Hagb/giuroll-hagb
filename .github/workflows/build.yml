@@ -1,10 +1,14 @@
 name: build
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+    types: [opened]
 
 env:
   CARGO_BUILD_TARGET: i686-win7-windows-msvc
   PROFILE: release
-  RUSTFLAGS: "-Clink-arg=/BREPRO -Ctarget-feature=+crt-static  -Zremap-cwd-prefix=. -Clink-arg=/PDBALTPATH:%_PDB%"
+  RUSTFLAGS: "-Clink-arg=/BREPRO -Zremap-cwd-prefix=. -Clink-arg=/PDBALTPATH:%_PDB%"
   CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO: packed
   CARGO_PROFILE_RELEASE_DEBUG: true
   CARGO_PROFILE_RELEASE_STRIP: none
@@ -41,7 +45,7 @@ jobs:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: nightly-2024-04-15
+          toolchain: nightly-2024-06-18
           components: rust-src
       - name: Build giuroll.dll
         run: |
@@ -78,6 +82,7 @@ jobs:
       - name: Build the injector
         run: |
           cd injector
+          $Env:RUSTFLAGS = "${Env:RUSTFLAGS} -Ctarget-feature=+crt-static"
           # Workaround for the FUCKING anti-virus software, many of which even detect an exe which does nothing
           # but is just written in rust and compiled by nightly toolchain with `-Ctarget-feature=+crt-static`!
           # Even compiled with stable toolchain, such an exe is detected as virus by some anti-virus software.
