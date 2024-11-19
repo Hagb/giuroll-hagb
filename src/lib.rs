@@ -46,7 +46,10 @@ use sound::RollbackSoundManager;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::LibraryLoader::GetModuleFileNameW;
-use windows::Win32::System::Memory::{HEAP_FLAGS};
+use windows::Win32::System::Memory::HEAP_FLAGS;
+
+#[cfg(feature = "fillfree")]
+use windows::Win32::System::Memory::HEAP_ZERO_MEMORY;
 use windows::Win32::{
     Foundation::{GetLastError, HMODULE, HWND},
     Networking::WinSock::{closesocket, SOCKADDR, SOCKET},
@@ -2225,6 +2228,16 @@ static mut LIKELY_DESYNCED: bool = false;
 #[no_mangle]
 pub extern "cdecl" fn is_likely_desynced() -> bool {
     unsafe { LIKELY_DESYNCED }
+}
+
+#[no_mangle]
+pub extern "cdecl" fn get_ping() -> *mut i32 {
+    unsafe {
+        match NEXT_DRAW_PING {
+            Some(x) => Box::into_raw(Box::new(x)),
+            None => std::ptr::null_mut(),
+        }
+    }
 }
 
 unsafe extern "stdcall" fn heap_alloc_override(heap: isize, flags: u32, s: usize) -> *mut c_void {
