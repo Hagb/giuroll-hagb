@@ -2231,11 +2231,11 @@ pub extern "cdecl" fn is_likely_desynced() -> bool {
 }
 
 #[no_mangle]
-pub extern "cdecl" fn get_ping() -> *mut i32 {
+pub extern "cdecl" fn get_ping() -> i32 {
     unsafe {
         match NEXT_DRAW_PING {
-            Some(x) => Box::into_raw(Box::new(x)),
-            None => std::ptr::null_mut(),
+            Some(x) => x,
+            None => -1,
         }
     }
 }
