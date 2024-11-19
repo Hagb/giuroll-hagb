@@ -23,7 +23,7 @@ giuroll=modules/giuroll/giuroll.dll
 ```
 
 ### For users without SWRSToys
-See the [Injector](/injector/).  
+See the [Injector](https://github.com/Hagb/giuroll-injector/tree/main).  
 
 **More information about the usage in game is available in the `installation and usage.txt` file inside the distributed zip**
 
@@ -46,7 +46,7 @@ SWRS_ADDR_PBATTLEMGR = 0x0047579c
 The mod can be buit with `cargo` using the commands below.
 ```bash
 rustup default nightly-2024-06-18-x86_64-pc-windows-msvc
-rustup component add rust-src --toolchain nightly-2024-06-18-x86_64-pc-windows-msvc 
+rustup component add rust-src --toolchain nightly-2024-06-18
 cargo +nightly-2024-06-18 build --target i686-win7-windows-msvc -Z build-std --release
 ```
 For debugging/developmental purposes, you may build with the `--release` flag omitted. This will open a console window and show further details while the game is running. 
