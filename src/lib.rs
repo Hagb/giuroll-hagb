@@ -1,11 +1,10 @@
-#![feature(pointer_is_aligned)]
-#![feature(abi_thiscall)]
 #![feature(let_chains)]
 #![feature(coroutines)]
 #![feature(iter_from_coroutine)]
 #![feature(anonymous_lifetime_in_impl_trait)]
 #![feature(panic_update_hook)]
 #![feature(panic_info_message)]
+#![feature(stmt_expr_attributes)]
 // we should manually and carefully avoid undefined behavior about
 // references to and any borrowing of static mut variables.
 // shuold be solved before updating to 2024 edition?
@@ -17,7 +16,7 @@ use std::panic;
 use std::{
     any::type_name,
     collections::HashMap,
-    ffi::{c_void, OsStr},
+    ffi::{c_void},
     mem::align_of,
     os::windows::prelude::OsStringExt,
     path::{Path, PathBuf},
@@ -47,7 +46,10 @@ use sound::RollbackSoundManager;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::LibraryLoader::GetModuleFileNameW;
-use windows::Win32::System::Memory::{HEAP_FLAGS, HEAP_ZERO_MEMORY};
+use windows::Win32::System::Memory::HEAP_FLAGS;
+
+#[cfg(feature = "fillfree")]
+use windows::Win32::System::Memory::HEAP_ZERO_MEMORY;
 use windows::Win32::{
     Foundation::{GetLastError, HMODULE, HWND},
     Networking::WinSock::{closesocket, SOCKADDR, SOCKET},

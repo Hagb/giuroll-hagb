@@ -60,6 +60,7 @@ pub type JmpToAddrRoutine =
 pub type JmpToRetRoutine =
     unsafe extern "cdecl" fn(regs: *mut Registers, ori_func_ptr: usize, src_addr: usize) -> usize;
 
+/// TODO: add documentation - what is this?
 pub type JmpToRetEnumRoutine =
     unsafe extern "cdecl" fn(regs: *mut Registers, ori_func_ptr: usize, src_addr: usize) -> usize;
 

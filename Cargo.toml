@@ -47,7 +47,11 @@ rand =  { version = "0.8.5", optional = true }
 
 [profile.release]
 strip = true
-#rustflags = ["-C", "target-feature=+crt-static"]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[profile.dev]
+rustflags = ["-C", "target-feature=+crt-static"]
+
 
 [package.metadata.winres]
 OriginalFilename = "giuroll.dll"
