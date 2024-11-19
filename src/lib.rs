@@ -2230,16 +2230,6 @@ pub extern "cdecl" fn is_likely_desynced() -> bool {
     unsafe { LIKELY_DESYNCED }
 }
 
-#[no_mangle]
-pub extern "cdecl" fn get_ping() -> i32 {
-    unsafe {
-        match NEXT_DRAW_PING {
-            Some(x) => x,
-            None => -1,
-        }
-    }
-}
-
 unsafe extern "stdcall" fn heap_alloc_override(heap: isize, flags: u32, s: usize) -> *mut c_void {
     let ret = HeapAlloc(HANDLE(heap), HEAP_FLAGS(flags), s);
 
