@@ -810,9 +810,14 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
                 940, 940,
             ];
 
-            CHARSIZEDATA = (0..35)
-                .map(|i| (CHARSIZEDATA_A[i], CHARSIZEDATA_B[i]))
-                .collect();
+            for i in 0..CHARSIZEDATA_A.len() {
+                if CHARSIZEDATA.len() == i {
+                    CHARSIZEDATA.push((0, 0));
+                }
+                if CHARSIZEDATA[i] == (0, 0) {
+                    CHARSIZEDATA[i] = (CHARSIZEDATA_A[i], CHARSIZEDATA_B[i]);
+                }
+            }
         } else {
             const CHARSIZEDATA_A: [usize; 20] = [
                 2236, 2220, 2208, 2244, 2216, 2284, 2196, 2220, 2260, 2200, 2232, 2200, 2200, 2216,
@@ -824,9 +829,14 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
                 940, 940, 940, 940,
             ];
 
-            CHARSIZEDATA = (0..20)
-                .map(|i| (CHARSIZEDATA_A[i], CHARSIZEDATA_B[i]))
-                .collect();
+            for i in 0..CHARSIZEDATA_A.len() {
+                if CHARSIZEDATA.len() == i {
+                    CHARSIZEDATA.push((0, 0));
+                }
+                if CHARSIZEDATA[i] == (0, 0) {
+                    CHARSIZEDATA[i] = (CHARSIZEDATA_A[i], CHARSIZEDATA_B[i]);
+                }
+            }
         }
     }
 

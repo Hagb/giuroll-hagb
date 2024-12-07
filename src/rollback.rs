@@ -26,10 +26,6 @@ pub static mut CHARSIZEDATA: Vec<(usize, usize)> = vec![];
 
 #[no_mangle]
 pub unsafe extern "cdecl" fn set_char_data_size(s: usize) {
-    while CHARSIZEDATA.len() > s {
-        CHARSIZEDATA.pop();
-    }
-
     while CHARSIZEDATA.len() < s {
         CHARSIZEDATA.push((0, 0))
     }
@@ -37,6 +33,7 @@ pub unsafe extern "cdecl" fn set_char_data_size(s: usize) {
 
 #[no_mangle]
 pub unsafe extern "cdecl" fn set_char_data_pos(pos: usize, a: usize, b: usize) {
+    set_char_data_size(pos);
     CHARSIZEDATA[pos] = (a, b);
 }
 
@@ -628,6 +625,11 @@ pub unsafe fn dump_frame(
         let char = player + 0x34c;
         let char = *(char as *const u8);
 
+        assert_ne!(
+            CHARSIZEDATA[char as usize].0, 0,
+            "The data size of character {} is missing?",
+            char
+        );
         let cdat = read_addr(player, CHARSIZEDATA[char as usize].0);
 
         let bullets = player + 0x17c;
