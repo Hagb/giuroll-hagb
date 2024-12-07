@@ -16,7 +16,7 @@ use std::panic;
 use std::{
     any::type_name,
     collections::HashMap,
-    ffi::{c_void},
+    ffi::c_void,
     mem::align_of,
     os::windows::prelude::OsStringExt,
     path::{Path, PathBuf},
@@ -25,7 +25,7 @@ use std::{
         atomic::{AtomicI32, AtomicU32, Ordering::Relaxed},
         Mutex,
     },
-    time::{Duration, Instant, SystemTime},
+    time::{Duration, Instant},
 };
 mod netcode;
 mod replay;
@@ -291,7 +291,7 @@ const INPUT_KEYS_NUMBERS: usize = 12;
 static mut REAL_INPUT: Option<[bool; INPUT_KEYS_NUMBERS]> = None;
 static mut REAL_INPUT2: Option<[bool; INPUT_KEYS_NUMBERS]> = None;
 
-static mut UPDATE: Option<SystemTime> = None;
+static mut UPDATE: Option<Instant> = None;
 static mut TARGET: Option<u128> = None;
 
 static mut WARNING_FRAME_MISSING_1_COUNTDOWN: usize = 0;
@@ -1855,7 +1855,7 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
         let (m, target) = match UPDATE {
             Some(x) => (x, TARGET.as_mut().unwrap()),
             None => {
-                let m = SystemTime::now();
+                let m = Instant::now();
                 UPDATE = Some(m);
                 TARGET = Some(0);
                 (m, TARGET.as_mut().unwrap())
@@ -1870,7 +1870,7 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
         //TARGET_OFFSET.fetch_add(s / 2, Relaxed);
         *target += (target_frametime + s) as u128;
 
-        let cur = m.elapsed().unwrap().as_micros();
+        let cur = m.elapsed().as_micros();
 
         let diff = (*target as i128 + 1000) - cur as i128 - SPIN_TIME_MICROSECOND;
         //if diff > 1_000_000 {
@@ -1892,7 +1892,7 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
             WaitForSingleObject(HANDLE(waithandle as isize), ddiff as u32);
             if SPIN_TIME_MICROSECOND != 0 {
                 loop {
-                    let r1 = m.elapsed().unwrap().as_micros();
+                    let r1 = m.elapsed().as_micros();
                     if r1 >= *target {
                         break;
                     }
@@ -2939,7 +2939,7 @@ unsafe fn handle_online(
                 RNG = Some(rand::thread_rng());
             }
             // let delayed_target = (*target + target_frametime as u128 + 1000)
-            //     .saturating_sub(m.elapsed().unwrap().as_micros());
+            //     .saturating_sub(m.elapsed().as_micros());
             std::thread::sleep(Duration::from_micros(
                 RNG.as_mut()
                     .unwrap()
