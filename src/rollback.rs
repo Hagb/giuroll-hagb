@@ -640,7 +640,7 @@ pub unsafe fn dump_frame(
             read_weird_structure(m, player + 0x8bc, 0x2c);
         }
 
-        if char == 0x37 {
+        if char == 36 {
             // Mamizou of CharacterEngine (https://github.com/SokuDev/CharacterEngine).
             // Hardcoding it is just a temporary workaround.
             // TODO: it should be exposed with APIs and implemented by developers of characters mods.
