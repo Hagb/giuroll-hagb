@@ -4,6 +4,8 @@ use winres::{VersionInfo, WindowsResource};
 
 extern crate winres;
 
+static VERSION_REMARK: Option<&str> = Some("(fork by Hagb)");
+static DLL_REVISION: u16 = 2;
 fn main() {
     let mut res = WindowsResource::new();
     if cfg!(unix) {
@@ -15,33 +17,25 @@ fn main() {
         res.set_windres_path("/usr/bin/i686-w64-mingw32-windres");
     }
 
-    if let Some(version_pre) = env::var("CARGO_PKG_VERSION_PRE")
+    let mut version = 0_u64;
+    version |= env::var("CARGO_PKG_VERSION_MAJOR")
         .unwrap()
-        .splitn(2, "-")
-        .next()
-    {
-        let mut version = 0_u64;
-        version |= env::var("CARGO_PKG_VERSION_MAJOR")
-            .unwrap()
-            .parse()
-            .unwrap_or(0)
-            << 48;
-        version |= env::var("CARGO_PKG_VERSION_MINOR")
-            .unwrap()
-            .parse()
-            .unwrap_or(0)
-            << 32;
-        version |= env::var("CARGO_PKG_VERSION_PATCH")
-            .unwrap()
-            .parse()
-            .unwrap_or(0)
-            << 16;
-        version |= version_pre.parse().unwrap_or(0);
-        res.set_version_info(VersionInfo::FILEVERSION, version);
-        res.set_version_info(VersionInfo::PRODUCTVERSION, version);
-    } else {
-        panic!();
-    }
+        .parse::<u64>()
+        .unwrap()
+        << 48;
+    version |= env::var("CARGO_PKG_VERSION_MINOR")
+        .unwrap()
+        .parse::<u64>()
+        .unwrap()
+        << 32;
+    version |= env::var("CARGO_PKG_VERSION_PATCH")
+        .unwrap()
+        .parse::<u64>()
+        .unwrap()
+        << 16;
+    version |= DLL_REVISION as u64;
+    res.set_version_info(VersionInfo::FILEVERSION, version);
+    res.set_version_info(VersionInfo::PRODUCTVERSION, version);
 
     res.set(
         "LegalCopyright",
@@ -60,12 +54,27 @@ fn main() {
         "FileDescription",
         env::var("CARGO_PKG_DESCRIPTION").unwrap().as_str(),
     );
-    if let Ok(repo) = env::var("SOURCE_URL") {
-        res.set(
-            "ProductVersion",
-            format!("{} ({})", env::var("CARGO_PKG_VERSION").unwrap(), repo).as_str(),
-        );
+    res.set(
+        "ProductVersion",
+        format!(
+            "{}{}{}",
+            env::var("CARGO_PKG_VERSION").unwrap(),
+            match VERSION_REMARK {
+                Some(remark) => " ".to_string() + &remark,
+                None => "".to_string(),
+            },
+            env::var("SOURCE_URL")
+                .and_then(|x| Ok(format!(" ({})", x).to_string()))
+                .unwrap_or("".to_string())
+        )
+        .as_str(),
+    );
+
+    println!("cargo:rustc-env=DLL_REVISION={}", DLL_REVISION);
+    if let Some(remark) = VERSION_REMARK {
+        println!("cargo:rustc-env=VERSION_REMARK={}", remark);
     }
+    println!("cargo:rustc-env=DLL_VERSION={}", version);
 
     if let Err(e) = res.compile() {
         eprintln!("{}", e);

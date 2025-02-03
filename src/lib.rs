@@ -43,6 +43,7 @@ use netcode::{Netcoder, NetworkPacket};
 //use notify::{RecursiveMode, Watcher};
 use rollback::{Rollbacker, DUMP_FRAME_TIME, LAST_M_LEN, MEMORY_LEAK};
 use sound::RollbackSoundManager;
+use winapi::ctypes::c_char;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::LibraryLoader::GetModuleFileNameW;
@@ -222,6 +223,61 @@ unsafe fn tamper_jmp_relative_opr<T: Sized>(dst: *mut c_void, src: T) -> T {
     return ret;
 }
 
+use version_compare::{Cmp, Version};
+const VERSION_STR: &str = env!("CARGO_PKG_VERSION");
+
+/// Compare GR version with version_string, following Semantic Versioning 2.0.0 (https://semver.org/).
+/// It returns false if version_string is an invalid version string, or
+/// returns true and assign *result = 0 (GR version = version_str), -1 (GR version < version_str), or 1 (GR version > version_str), if version_str is valid
+#[no_mangle]
+pub unsafe extern "C" fn compareVersionString(
+    version_string: *const c_char,
+    result: *mut i32,
+) -> bool {
+    if let Ok(version_str) = std::ffi::CStr::from_ptr(version_string).to_str() {
+        if let Some(ver) = version_compare::Version::from(version_str) {
+            *result = match Version::from(VERSION_STR).unwrap().compare(ver) {
+                Cmp::Eq => 0,
+                Cmp::Lt => -1,
+                Cmp::Gt => 1,
+                _ => unreachable!(),
+            };
+            return true;
+        }
+    }
+    return false;
+}
+
+/// Returns version string
+#[no_mangle]
+pub extern "C" fn getVersionString() -> *const c_char {
+    static VERSION_CSTRING: Mutex<Option<std::ffi::CString>> = Mutex::new(None);
+    let mut string = VERSION_CSTRING.lock().unwrap();
+    if string.is_none() {
+        *string = Some(std::ffi::CString::new(VERSION_STR).unwrap());
+    }
+    string.as_ref().unwrap().as_ptr()
+}
+
+/// Return GR version with given version, where version values consist of four 16 bit words, e.g.
+/// `MAJOR << 48 | MINOR << 32 | PATCH << 16 | RELEASE`.
+#[no_mangle]
+pub unsafe extern "C" fn getVersion() -> u64 {
+    return env!("DLL_VERSION").parse::<u64>().unwrap();
+}
+
+/// Compare GR version with given version, where version values consist of four 16 bit words, e.g.
+/// `MAJOR << 48 | MINOR << 32 | PATCH << 16 | RELEASE`.
+/// It returns 0 (GR version = version_str), -1 (GR version < version_str), or 1 (GR version > version_str).
+#[no_mangle]
+pub unsafe extern "C" fn compareVersion(version: u64) -> i32 {
+    match env!("DLL_VERSION").parse::<u64>().unwrap().cmp(&version) {
+        std::cmp::Ordering::Equal => 0,
+        std::cmp::Ordering::Less => -1,
+        std::cmp::Ordering::Greater => 1,
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn getPriority() -> i32 {
     1000
@@ -300,8 +356,6 @@ static mut WARNING_FRAME_LOST_COUNTDOWN: AtomicU32 = AtomicU32::new(0);
 static SOKU_LOOP_EVENT: Mutex<Option<isize>> = Mutex::new(None);
 static TARGET_OFFSET: AtomicI32 = AtomicI32::new(0);
 //static TARGET_OFFSET_COUNT: AtomicI32 = AtomicI32::new(0);
-
-const VER: &str = env!("CARGO_PKG_VERSION");
 
 unsafe extern "cdecl" fn skip(_a: *mut ilhook::x86::Registers, _b: usize, _c: usize) {}
 
@@ -841,20 +895,15 @@ fn truer_exec(filename: PathBuf, pretend_to_be_vanilla: bool) -> Result<(), Stri
     }
 
     #[allow(unused_mut)]
-    let mut verstr: String = VER.to_string();
+    let mut verstr: String = VERSION_STR.to_string();
+    if let Some(remark) = option_env!("VERSION_REMARK") {
+        verstr += " ";
+        verstr += remark;
+    }
     #[cfg(feature = "lowframetest")]
     {
-        verstr += "-low_frame_test"
+        verstr += " low_frame_test"
     };
-    #[cfg(feature = "cn")]
-    {
-        match verstr.strip_suffix("-unofficial") {
-            Some(s) => {
-                verstr = s.to_string();
-            }
-            _ => {}
-        }
-    }
     if f62_enabled {
         verstr += " CN";
     }
