@@ -5,7 +5,7 @@ use winres::{VersionInfo, WindowsResource};
 extern crate winres;
 
 static VERSION_REMARK: Option<&str> = Some("(fork by Hagb)");
-static DLL_REVISION: u16 = 2;
+static DLL_REVISION: u16 = 3;
 fn main() {
     let mut res = WindowsResource::new();
     if cfg!(unix) {

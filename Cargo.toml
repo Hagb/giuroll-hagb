@@ -5,7 +5,7 @@ authors = ["Giufin (2023~2024)", "Hagb (Junyu Guo) <hagb@hagb.name> (2024)"]
 license = "MIT"
 # Increase DLL_REVISION in build.rs when pre-release version is bumped or removed with fixed major.minor.patch version, and
 # reset DLL_REVISION when major.minor.patch version is bumped.
-version = "0.6.18-alpha.2"
+version = "0.6.18"
 edition = "2021"
 build = "build.rs"
 description = "A network rollback mod for 東方非想天則 / Touhou 12.3 Hisoutensoku, with also support for replay rewind and takeover"
