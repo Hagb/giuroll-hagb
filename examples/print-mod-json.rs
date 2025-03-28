@@ -3,7 +3,6 @@ fn main() {
     let mut v = json! ({
         "name": "giuroll",
         "author": "AUTHOR",
-        "priority": "1",
         "description": "New rollback netcode.\nAlso provides replay rewind and takeover.",
         "descriptionI18n": [],
         "notes": "",
